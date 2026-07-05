@@ -1,5 +1,6 @@
 """Safe deterministic repository tree scanner."""
 
+import json
 import os
 from collections import Counter
 from pathlib import Path, PurePosixPath
@@ -149,7 +150,5 @@ class ScanRepoTool(Tool):
             "skipped_symlinks": skipped_symlinks,
             "truncated": truncated,
         }
-        return ToolResponse.success(
-            text=f"Scanned {file_count} files and {directory_count} directories",
-            data=data,
-        )
+        agent_view = {**data, "entries": entries[:200]}
+        return ToolResponse.success(text=json.dumps(agent_view, ensure_ascii=False), data=data)

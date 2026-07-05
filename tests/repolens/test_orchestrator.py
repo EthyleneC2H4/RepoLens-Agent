@@ -20,7 +20,7 @@ class FakeLLM:
 def test_readonly_registry_contains_only_expected_tools(tmp_path: Path) -> None:
     config = RepoLensConfig(root=tmp_path, mode="standard")
     registry = build_readonly_registry(config)
-    assert registry.list_tools() == ["scan_repo", "parse_manifest", "Read"]
+    assert registry.list_tools() == ["scan_repo", "parse_manifest", "Read", "search_code"]
 
 
 def test_orchestrator_applies_agent_limits(tmp_path: Path) -> None:

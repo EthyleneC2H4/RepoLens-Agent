@@ -5,6 +5,7 @@ from hello_agents import ToolRegistry
 from repolens.config import RepoLensConfig
 from repolens.tools import ParseManifestTool, ScanRepoTool
 from repolens.tools.read import SafeReadTool
+from repolens.tools.search import SearchCodeTool
 
 
 def build_readonly_registry(config: RepoLensConfig) -> ToolRegistry:
@@ -19,4 +20,5 @@ def build_readonly_registry(config: RepoLensConfig) -> ToolRegistry:
     )
     registry.register_tool(ParseManifestTool(config.root, max_file_bytes=config.max_file_bytes))
     registry.register_tool(SafeReadTool(config.root, max_file_bytes=config.max_file_bytes))
+    registry.register_tool(SearchCodeTool(config.root))
     return registry

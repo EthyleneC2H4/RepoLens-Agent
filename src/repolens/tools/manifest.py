@@ -101,10 +101,7 @@ class ParseManifestTool(Tool):
             "manifest_type": manifest_type,
             **parsed,
         }
-        return ToolResponse.success(
-            text=f"Parsed {manifest_type} manifest: {relative_path}",
-            data=data,
-        )
+        return ToolResponse.success(text=json.dumps(data, ensure_ascii=False), data=data)
 
     @staticmethod
     def _parse_pyproject(path: Path) -> dict[str, Any]:
