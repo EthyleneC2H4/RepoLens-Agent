@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field, field_validator
 DEFAULT_IGNORE_PATTERNS = (
     ".git",
     ".env",
+    ".env.local",
+    ".env.*.local",
     ".venv",
     "__pycache__",
     "node_modules",
@@ -17,6 +19,7 @@ DEFAULT_IGNORE_PATTERNS = (
     ".pytest_cache",
     ".mypy_cache",
     ".ruff_cache",
+    "*.egg-info",
 )
 
 
