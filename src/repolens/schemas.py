@@ -77,6 +77,7 @@ class RiskItem(BaseModel):
 
 class AnalysisMetadata(BaseModel):
     mode: Literal["fast", "standard"]
+    model: str | None = None
     source_root: str
     generated_at: datetime
     duration_ms: int = Field(ge=0)

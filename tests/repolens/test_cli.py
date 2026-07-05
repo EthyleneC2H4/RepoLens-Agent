@@ -27,12 +27,6 @@ def test_analyze_writes_markdown_and_json(tmp_path: Path) -> None:
     assert document["project_summary"].startswith("cli-sample contains")
 
 
-def test_standard_mode_is_explicitly_deferred(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["analyze", str(tmp_path), "--mode", "standard"])
-    assert result.exit_code == 2
-    assert "planned for week 2" in result.output
-
-
 def test_invalid_path_returns_usage_error(tmp_path: Path) -> None:
     result = runner.invoke(app, ["analyze", str(tmp_path / "missing")])
     assert result.exit_code == 2

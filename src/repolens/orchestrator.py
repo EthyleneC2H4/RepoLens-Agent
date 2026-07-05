@@ -73,10 +73,11 @@ class RepositoryOrchestrator:
         report.module_map = self._merge_grounded(report.module_map, architecture.module_map, validator)
         report.call_flows = self._merge_grounded([], architecture.call_flows, validator)
         report.run_commands = self._merge_grounded(report.run_commands, runtime.run_commands, validator)
-        report.risks = self._merge_grounded(report.risks, [*architecture.risks, *runtime.risks], validator, allow_empty=True)
+        report.risks = self._merge_grounded(report.risks, [*architecture.risks, *runtime.risks], validator)
         report.reading_path = self._merge_reading_paths(report.reading_path, runtime.reading_path, validator)
         report.evidence = self._collect_evidence(report)
         report.metadata.mode = "standard"
+        report.metadata.model = self.llm.model
         report.metadata.generated_at = datetime.now(timezone.utc)
         report.metadata.duration_ms = int((perf_counter() - started) * 1000)
         report.metadata.tokens = self.budget.used

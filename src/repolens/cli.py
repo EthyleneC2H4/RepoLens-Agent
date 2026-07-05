@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from repolens.analyzer import FastAnalyzer
 from repolens.config import RepoLensConfig
+from repolens.orchestrator import RepositoryOrchestrator
 from repolens.renderers import write_report
 
 
@@ -30,9 +31,6 @@ def analyze(
     max_files: Annotated[int, typer.Option(help="Maximum files to scan")] = 5_000,
 ) -> None:
     """Analyze PATH and write an evidence-backed report."""
-    if mode == "standard":
-        typer.echo("standard mode is planned for week 2; use --mode fast", err=True)
-        raise typer.Exit(2)
     default_output = Path("reports") / datetime.now().strftime("%Y%m%d-%H%M%S")
     try:
         config = RepoLensConfig(
@@ -43,11 +41,15 @@ def analyze(
             max_depth=max_depth,
             max_files=max_files,
         )
-        report = FastAnalyzer(config).analyze()
+        report = (
+            FastAnalyzer(config).analyze()
+            if config.mode == "fast"
+            else RepositoryOrchestrator(config).analyze()
+        )
         written = write_report(report, config.output_dir or default_output, config.output_format)
     except (ValidationError, ValueError, RuntimeError, OSError) as exc:
         typer.echo(f"analysis failed: {exc}", err=True)
         raise typer.Exit(2) from exc
-    typer.echo(f"Analyzed {report.metadata.files_scanned} files in fast mode.")
+    typer.echo(f"Analyzed {report.metadata.files_scanned} files in {report.metadata.mode} mode.")
     for result in written:
         typer.echo(str(result))
