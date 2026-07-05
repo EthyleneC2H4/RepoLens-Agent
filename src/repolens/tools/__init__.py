@@ -1,6 +1,7 @@
 """Deterministic, read-only tools used by RepoLens."""
 
-from .scanner import ScanRepoTool
 from .manifest import ParseManifestTool
+from .read import SafeReadTool
+from .scanner import ScanRepoTool
 
-__all__ = ["ParseManifestTool", "ScanRepoTool"]
+__all__ = ["ParseManifestTool", "SafeReadTool", "ScanRepoTool"]
