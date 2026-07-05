@@ -42,6 +42,29 @@ class EvidenceValidator:
             )
         return None
 
+    def path_exists(self, relative_path: str, *, allow_directory: bool = False) -> bool:
+        try:
+            path = resolve_within_root(self.project_root, relative_path)
+        except ValueError:
+            return False
+        if path.is_symlink():
+            return False
+        return path.exists() if allow_directory else path.is_file()
+
+    def supports_text(self, evidence: EvidenceRef, expected: str) -> bool:
+        """Require a model-produced value to occur in its cited line range."""
+        if evidence.line_start is None:
+            return False
+        try:
+            path = resolve_within_root(self.project_root, evidence.path)
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except (ValueError, OSError, UnicodeDecodeError):
+            return False
+        start = evidence.line_start - 1
+        end = evidence.line_end or evidence.line_start
+        cited = "\n".join(lines[start:end]).lower()
+        return expected.strip().lower() in cited
+
     def keep_valid(self, evidence: list[EvidenceRef]) -> tuple[list[EvidenceRef], list[EvidenceIssue]]:
         valid: list[EvidenceRef] = []
         issues: list[EvidenceIssue] = []

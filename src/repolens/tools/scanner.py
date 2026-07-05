@@ -150,5 +150,13 @@ class ScanRepoTool(Tool):
             "skipped_symlinks": skipped_symlinks,
             "truncated": truncated,
         }
-        agent_view = {**data, "entries": entries[:200]}
+        agent_view = {
+            "root_name": data["root_name"],
+            "files": data["files"],
+            "directories": data["directories"],
+            "paths": [entry["path"] for entry in entries[:80]],
+            "extensions": data["extensions"],
+            "ignored": data["ignored"],
+            "truncated": data["truncated"],
+        }
         return ToolResponse.success(text=json.dumps(agent_view, ensure_ascii=False), data=data)

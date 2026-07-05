@@ -1,6 +1,7 @@
 """RepoLens command-line interface."""
 
 from datetime import datetime
+import json
 from pathlib import Path
 from typing import Annotated
 
@@ -9,6 +10,7 @@ from pydantic import ValidationError
 
 from repolens.analyzer import FastAnalyzer
 from repolens.config import RepoLensConfig
+from repolens.errors import AnalysisError, AnalysisErrorCode
 from repolens.orchestrator import RepositoryOrchestrator
 from repolens.renderers import write_report
 
@@ -29,6 +31,10 @@ def analyze(
     output_format: Annotated[str, typer.Option("--format", help="md, json, or both")] = "both",
     max_depth: Annotated[int, typer.Option(help="Maximum scan depth")] = 4,
     max_files: Annotated[int, typer.Option(help="Maximum files to scan")] = 5_000,
+    max_steps: Annotated[int, typer.Option(help="Maximum ReAct steps per agent")] = 6,
+    token_budget: Annotated[int, typer.Option(help="Shared standard-mode token budget")] = 24_000,
+    reasoning_effort: Annotated[str, typer.Option(help="Qwen/Ollama reasoning effort")] = "none",
+    resume: Annotated[Path | None, typer.Option(help="Resume a saved standard-mode session")] = None,
 ) -> None:
     """Analyze PATH and write an evidence-backed report."""
     default_output = Path("reports") / datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -40,6 +46,11 @@ def analyze(
             output_format=output_format,
             max_depth=max_depth,
             max_files=max_files,
+            agent_max_steps=max_steps,
+            subagent_max_steps=max_steps,
+            token_budget=token_budget,
+            reasoning_effort=reasoning_effort,
+            resume_session=resume,
         )
         report = (
             FastAnalyzer(config).analyze()
@@ -47,7 +58,18 @@ def analyze(
             else RepositoryOrchestrator(config).analyze()
         )
         written = write_report(report, config.output_dir or default_output, config.output_format)
+    except AnalysisError as exc:
+        error = exc.to_dict()
+        error_dir = (output or default_output).expanduser().resolve()
+        error_dir.mkdir(parents=True, exist_ok=True)
+        (error_dir / "error.json").write_text(json.dumps(error, indent=2), encoding="utf-8")
+        typer.echo(f"analysis failed [{exc.code.value}]: {exc}", err=True)
+        raise typer.Exit(2) from exc
     except (ValidationError, ValueError, RuntimeError, OSError) as exc:
+        error = AnalysisError(AnalysisErrorCode.CONFIGURATION, str(exc)).to_dict()
+        error_dir = (output or default_output).expanduser().resolve()
+        error_dir.mkdir(parents=True, exist_ok=True)
+        (error_dir / "error.json").write_text(json.dumps(error, indent=2), encoding="utf-8")
         typer.echo(f"analysis failed: {exc}", err=True)
         raise typer.Exit(2) from exc
     typer.echo(f"Analyzed {report.metadata.files_scanned} files in {report.metadata.mode} mode.")

@@ -11,11 +11,18 @@ from repolens.orchestrator import RepositoryOrchestrator
 class ScriptedLLM:
     model = "mock-tool-model"
 
-    def __init__(self, responses):
+    def __init__(self, responses, synthesis=None):
         self.responses = iter(responses)
+        self.synthesis = iter(synthesis or [])
 
     def invoke_with_tools(self, **_kwargs):
         return next(self.responses)
+
+    def invoke(self, *_args, **_kwargs):
+        return type("Response", (), {
+            "content": next(self.synthesis),
+            "usage": {"total_tokens": 5},
+        })()
 
 
 def response(*, content=None, tool=None, arguments=None, tokens=10):
@@ -87,3 +94,44 @@ def test_invalid_subagent_evidence_is_dropped(tmp_path: Path) -> None:
     ).analyze()
     assert report.entry_points == []
     assert "ghost.py" not in report.reading_path
+
+
+def test_existing_evidence_does_not_justify_invented_command(tmp_path: Path) -> None:
+    (tmp_path / "README.md").write_text("run pytest\n", encoding="utf-8")
+    architecture = {"findings": []}
+    runtime = {"findings": [{
+        "type": "run_command",
+        "title": "deploy-production",
+        "description": "invented",
+        "evidence": {"path": "README.md", "claim": "unrelated", "line_start": 1},
+    }]}
+    llm = ScriptedLLM([response(content=json.dumps(architecture)), response(content=json.dumps(runtime))])
+    report = RepositoryOrchestrator(
+        RepoLensConfig(root=tmp_path, mode="standard"), llm=llm
+    ).analyze()
+    assert all(item.command != "deploy-production" for item in report.run_commands)
+
+
+def test_step_exhaustion_forces_bounded_structured_synthesis(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text("def main():\n    pass\n", encoding="utf-8")
+    architecture = json.dumps({"findings": [{
+        "type": "entry_point",
+        "title": "app.py",
+        "description": "main",
+        "evidence": {"path": "app.py", "claim": "defines main", "line_start": 1},
+    }]})
+    runtime = json.dumps({"findings": [{
+        "type": "reading_path", "title": "app.py", "evidence": {"path": "app.py", "claim": "source"}
+    }]})
+    llm = ScriptedLLM(
+        [
+            response(tool="Read", arguments={"path": "app.py"}),
+            response(tool="Read", arguments={"path": "app.py"}),
+        ],
+        synthesis=[architecture, runtime],
+    )
+    report = RepositoryOrchestrator(
+        RepoLensConfig(root=tmp_path, mode="standard", subagent_max_steps=1), llm=llm
+    ).analyze()
+    assert report.entry_points[0].path == "app.py"
+    assert report.reading_path == ["app.py"]

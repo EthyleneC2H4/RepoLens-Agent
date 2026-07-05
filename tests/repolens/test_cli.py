@@ -4,6 +4,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from repolens.cli import app
+from repolens.errors import AnalysisError, AnalysisErrorCode
 
 
 runner = CliRunner()
@@ -31,3 +32,25 @@ def test_invalid_path_returns_usage_error(tmp_path: Path) -> None:
     result = runner.invoke(app, ["analyze", str(tmp_path / "missing")])
     assert result.exit_code == 2
     assert "does not exist" in result.output
+
+
+def test_standard_failure_writes_structured_error(tmp_path: Path, monkeypatch) -> None:
+    class FailingOrchestrator:
+        def __init__(self, _config):
+            pass
+
+        def analyze(self):
+            raise AnalysisError(AnalysisErrorCode.MODEL_TIMEOUT, "model timed out", retryable=True)
+
+    monkeypatch.setattr("repolens.cli.RepositoryOrchestrator", FailingOrchestrator)
+    output = tmp_path / "out"
+    result = runner.invoke(
+        app, ["analyze", str(tmp_path), "--mode", "standard", "--output", str(output)]
+    )
+    assert result.exit_code == 2
+    error = json.loads((output / "error.json").read_text(encoding="utf-8"))
+    assert error == {
+        "code": "MODEL_TIMEOUT",
+        "message": "model timed out",
+        "retryable": True,
+    }

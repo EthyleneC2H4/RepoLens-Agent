@@ -33,22 +33,53 @@ class TokenBudget:
 class BudgetedLLM:
     """Delegate to an LLM while sharing one budget across all agents."""
 
-    def __init__(self, llm: Any, budget: TokenBudget) -> None:
+    def __init__(self, llm: Any, budget: TokenBudget, *, reasoning_effort: str | None = None) -> None:
         self._llm = llm
         self.budget = budget
         self.model = llm.model
+        self.last_error: AnalysisError | None = None
+        self.reasoning_effort = reasoning_effort
+
+    def _call(self, method: str, *args: Any, **kwargs: Any) -> Any:
+        self.budget.ensure_available()
+        try:
+            response = getattr(self._llm, method)(*args, **kwargs)
+        except AnalysisError as exc:
+            self.last_error = exc
+            raise
+        except (TimeoutError, ConnectionError) as exc:
+            code = (
+                AnalysisErrorCode.MODEL_TIMEOUT
+                if isinstance(exc, TimeoutError)
+                else AnalysisErrorCode.MODEL_UNAVAILABLE
+            )
+            self.last_error = AnalysisError(code, str(exc), retryable=True)
+            raise self.last_error from exc
+        except Exception as exc:
+            self.last_error = AnalysisError(
+                AnalysisErrorCode.MODEL_UNAVAILABLE, str(exc), retryable=True
+            )
+            raise self.last_error from exc
+        try:
+            self.budget.record(response)
+        except AnalysisError as exc:
+            self.last_error = exc
+            raise
+        return response
 
     def invoke_with_tools(self, *args: Any, **kwargs: Any) -> Any:
-        self.budget.ensure_available()
-        response = self._llm.invoke_with_tools(*args, **kwargs)
-        self.budget.record(response)
-        return response
+        if self.reasoning_effort and (
+            "qwen" in self.model.lower() or "11434" in str(getattr(self._llm, "base_url", ""))
+        ):
+            kwargs.setdefault("reasoning_effort", self.reasoning_effort)
+        return self._call("invoke_with_tools", *args, **kwargs)
 
     def invoke(self, *args: Any, **kwargs: Any) -> Any:
-        self.budget.ensure_available()
-        response = self._llm.invoke(*args, **kwargs)
-        self.budget.record(response)
-        return response
+        if self.reasoning_effort and (
+            "qwen" in self.model.lower() or "11434" in str(getattr(self._llm, "base_url", ""))
+        ):
+            kwargs.setdefault("reasoning_effort", self.reasoning_effort)
+        return self._call("invoke", *args, **kwargs)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._llm, name)

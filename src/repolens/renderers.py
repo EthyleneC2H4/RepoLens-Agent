@@ -6,6 +6,7 @@ from typing import Iterable
 from repolens.evidence import EvidenceValidator
 from repolens.errors import AnalysisError, AnalysisErrorCode
 from repolens.schemas import AnalysisReport, EvidenceRef
+from repolens.schemas import EntryPoint, ModuleInfo
 
 
 def _evidence_suffix(items: Iterable[EvidenceRef]) -> str:
@@ -69,9 +70,21 @@ def assert_report_grounded(report: AnalysisReport) -> None:
         report.risks,
     ):
         ungrounded.extend(item for item in section if not item.evidence)
-    if issues or ungrounded:
+    invalid_paths = [
+        item.path
+        for item in report.entry_points
+        if not validator.path_exists(item.path)
+    ]
+    invalid_paths.extend(
+        item.path
+        for item in report.module_map
+        if not validator.path_exists(item.path, allow_directory=True)
+    )
+    invalid_paths.extend(path for path in report.reading_path if not validator.path_exists(path))
+    if issues or ungrounded or invalid_paths:
         details = [f"{issue.path}: {issue.reason}" for issue in issues]
         details.extend(type(item).__name__ for item in ungrounded)
+        details.extend(f"invalid report path: {path}" for path in invalid_paths)
         raise AnalysisError(
             AnalysisErrorCode.EVIDENCE_INVALID,
             "report contains invalid or missing evidence: " + "; ".join(details),

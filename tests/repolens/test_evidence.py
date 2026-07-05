@@ -17,3 +17,14 @@ def test_evidence_validator_rejects_missing_file_and_invalid_line(tmp_path: Path
     invalid_line = validator.validate(EvidenceRef(path="app.py", claim="bad", line_start=2))
     assert missing and "regular file" in missing.reason
     assert invalid_line and "exceeds" in invalid_line.reason
+
+
+def test_evidence_text_support_requires_cited_line(tmp_path: Path) -> None:
+    (tmp_path / "README.md").write_text("run pytest\nnot here\n", encoding="utf-8")
+    validator = EvidenceValidator(tmp_path)
+    assert validator.supports_text(
+        EvidenceRef(path="README.md", claim="command", line_start=1), "pytest"
+    )
+    assert not validator.supports_text(
+        EvidenceRef(path="README.md", claim="wrong line", line_start=2), "pytest"
+    )
