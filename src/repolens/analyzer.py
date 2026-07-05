@@ -72,7 +72,7 @@ class FastAnalyzer:
         evidence = self._manifest_evidence(manifests)
         tech_stack = self._tech_stack(manifests, scan["extensions"])
         entry_points = self._entry_points(files)
-        modules = self._module_map(directories)
+        modules = self._module_map(directories, files)
         commands = self._run_commands(manifests, files)
         risks = self._risks(scan, files, manifests, manifest_errors)
         reading_path = self._reading_path(files, manifests, entry_points, modules)
@@ -165,7 +165,7 @@ class FastAnalyzer:
                 )
         return result[:20]
 
-    def _module_map(self, directories: list[str]) -> list[ModuleInfo]:
+    def _module_map(self, directories: list[str], files: list[str]) -> list[ModuleInfo]:
         purposes = {
             "src": "application source code",
             "tests": "automated tests",
@@ -180,7 +180,9 @@ class FastAnalyzer:
             if "/" in path:
                 continue
             purpose = purposes.get(path.lower(), "top-level project module")
-            result.append(ModuleInfo(path=path, purpose=purpose))
+            representative = next((item for item in files if item.startswith(f"{path}/")), None)
+            refs = [self._ref(representative, f"File contained by {path}")] if representative else []
+            result.append(ModuleInfo(path=path, purpose=purpose, evidence=refs))
         return result
 
     def _run_commands(
@@ -201,7 +203,16 @@ class FastAnalyzer:
         if any(path.startswith("tests/") or path.startswith("test/") for path in files) and any(
             item["manifest_type"] == "python" for item in manifests
         ):
-            commands.append(RunCommand(command="python -m pytest", purpose="Run the Python test suite"))
+            test_file = next(
+                path for path in files if path.startswith("tests/") or path.startswith("test/")
+            )
+            commands.append(
+                RunCommand(
+                    command="python -m pytest",
+                    purpose="Run the Python test suite",
+                    evidence=[self._ref(test_file, "Conventional Python test suite")],
+                )
+            )
         return commands
 
     def _risks(
