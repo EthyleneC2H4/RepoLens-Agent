@@ -1,0 +1,42 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Build and coverage output
+build/
+dist/
+*.egg-info/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+site/
+docs/_build/
+
+# Local configuration and secrets
+.env
+.env.local
+.env.*.local
+.pypirc
+
+# IDE and operating-system files
+.idea/
+.vscode/
+.DS_Store
+.obsidian/
+*.log
+
+# Runtime artifacts
+memory/
+tool-output/
+.backups/
