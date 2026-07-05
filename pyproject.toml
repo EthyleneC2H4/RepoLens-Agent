@@ -34,6 +34,9 @@ Homepage = "https://github.com/EthyleneC2H4/RepoLens-Agent"
 Repository = "https://github.com/EthyleneC2H4/RepoLens-Agent"
 "Upstream Framework" = "https://github.com/jjyaoao/HelloAgents/releases/tag/V1.0.0"
 
+[project.scripts]
+repolens = "repolens.cli:app"
+
 [tool.setuptools.packages.find]
 where = [".", "src"]
 include = ["hello_agents*", "repolens*"]

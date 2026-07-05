@@ -38,5 +38,6 @@ docs/_build/
 
 # Runtime artifacts
 memory/
+reports/
 tool-output/
 .backups/
